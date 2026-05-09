@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国象棋教学系统</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  display: flex;
+  gap: 24px;
+  max-width: 1400px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+/* ── 棋盘区域 ── */
+.board-section {
+  flex: 0 0 auto;
+  background: rgba(255,255,255,0.04);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.board-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f0d78c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.turn-indicator {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.turn-indicator.red { background: rgba(220, 20, 60, 0.3); color: #ff6b6b; }
+.turn-indicator.black { background: rgba(0, 0, 0, 0.4); color: #aaa; }
+
+canvas#board {
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  cursor: pointer;
+}
+
+.board-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-undo {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.btn-new {
+  background: rgba(240, 215, 140, 0.15);
+  color: #f0d78c;
+  border: 1px solid rgba(240, 215, 140, 0.3);
+}
+
+.btn-replay {
+  background: rgba(100, 180, 255, 0.15);
+  color: #7bb8ff;
+  border: 1px solid rgba(100, 180, 255, 0.3);
+}
+
+/* ── 侧边栏 ── */
+.sidebar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 320px;
+  max-width: 420px;
+}
+
+.panel {
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ccc;
+}
+
+.panel-title .icon { font-size: 18px; }
+
+/* 胜率面板 */
+.winrate-bars { display: flex; flex-direction: column; gap: 10px; }
+
+.winrate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.winrate-label {
+  width: 40px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.winrate-label.red { color: #ff6b6b; }
+.winrate-label.draw { color: #f0d78c; }
+.winrate-label.black { color: #aaa; }
+
+.winrate-bar-bg {
+  flex: 1;
+  height: 20px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.winrate-bar {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 40px;
+}
+
+.winrate-bar.red { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+.winrate-bar.draw { background: linear-gradient(90deg, #b8860b, #daa520); }
+.winrate-bar.black { background: linear-gradient(90deg, #2c3e50, #34495e); }
+
+.winrate-value {
+  width: 50px;
+  font-size: 13px;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* 推荐面板 */
+.reco-list { display: flex; flex-direction: column; gap: 8px; }
+
+.reco-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reco-item:hover {
+  background: rgba(240, 215, 140, 0.1);
+  border-color: rgba(240, 215, 140, 0.3);
+}
+
+.reco-item.selected {
+  background: rgba(240, 215, 140, 0.15);
+  border-color: rgba(240, 215, 140, 0.5);
+}
+
+.reco-rank {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.reco-rank.r1 { background: #daa520; color: #1a1a2e; }
+.reco-rank.r2 { background: #7f8c8d; color: #fff; }
+.reco-rank.r3 { background: #8b4513; color: #fff; }
+
+.reco-info { flex: 1; min-width: 0; }
+
+.reco-move {
+  font-size: 14px;
+  font-weight: 500;
+  color: #f0d78c;
+}
+
+.reco-detail {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.reco-rate {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+.reco-arrow {
+  font-size: 14px;
+  color: #555;
+}
+
+/* 推演面板 */
+.lookahead-panel {
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(240, 215, 140, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.lookahead-panel .panel-title {
+  color: #f0d78c;
+}
+
+.lookahead-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.lookahead-step {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lookahead-step:hover { border-color: rgba(240,215,140,0.4); }
+.lookahead-step.red-step { background: rgba(220,20,60,0.1); }
+.lookahead-step.black-step { background: rgba(0,0,0,0.2); }
+.lookahead-step.active { border-color: #f0d78c; background: rgba(240,215,140,0.15); }
+
+.lookahead-rate {
+  font-size: 10px;
+  color: #888;
+}
+
+/* 复盘面板 */
+.replay-panel {
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
+
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.replay-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  outline: none;
+}
+
+.replay-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: #f0d78c;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.replay-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.replay-btn:hover { background: rgba(255,255,255,0.12); }
+.replay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.replay-info {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+}
+
+/* 状态提示 */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: toastIn 0.3s ease;
+}
+
+.toast.error { background: rgba(220,20,60,0.9); color: #fff; }
+.toast.success { background: rgba(39,174,96,0.9); color: #fff; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Loading */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  z-index: 10;
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: #f0d78c;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 响应式 */
+@media (max-width: 1100px) {
+  .container { flex-direction: column; align-items: center; }
+  .sidebar { max-width: 100%; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 棋盘 -->
+  <div class="board-section" id="boardSection">
+    <div class="board-header">
+      <div class="board-title">
+        <span>🏁</span> 中国象棋教学
+      </div>
+      <div class="turn-indicator red" id="turnIndicator">🔴 红方走棋</div>
+    </div>
+    <canvas id="board" width="540" height="600"></canvas>
+    <div class="board-footer">
+      <button class="btn btn-undo" id="btnUndo" title="悔棋（撤回你的一步和 AI 的回应）">↩️ 悔棋</button>
+      <button class="btn btn-new" id="btnNew">🔄 新游戏</button>
+      <button class="btn btn-replay" id="btnReplay">📋 复盘</button>
+    </div>
+  </div>
+
+  <!-- 侧边栏 -->
+  <div class="sidebar">
+    <!-- 胜率面板 -->
+    <div class="panel" id="winratePanel">
+      <div class="panel-title"><span class="icon">📊</span> 实时胜率</div>
+      <div class="winrate-bars">
+        <div class="winrate-row">
+          <span class="winrate-label red">红胜</span>
+          <div class="winrate-bar-bg">
+            <div class="winrate-bar red" id="redWinBar" style="width: 50%"></div>
+          </div>
+          <span class="winrate-value" id="redWinValue">50%</span>
+        </div>
+        <div class="winrate-row">
+          <span class="winrate-label draw">和棋</span>
+          <div class="winrate-bar-bg">
+            <div class="winrate-bar draw" id="drawBar" style="width: 10%"></div>
+          </div>
+          <span class="winrate-value" id="drawValue">10%</span>
+        </div>
+        <div class="winrate-row">
+          <span class="winrate-label black">黑胜</span>
+          <div class="winrate-bar-bg">
+            <div class="winrate-bar black" id="blackWinBar" style="width: 40%"></div>
+          </div>
+          <span class="winrate-value" id="blackWinValue">40%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 推荐面板 -->
+    <div class="panel" id="recoPanel">
+      <div class="panel-title"><span class="icon">💡</span> 推荐走法（点击查看推演）</div>
+      <div class="reco-list" id="recoList">
+        <div style="color:#666;padding:16px;text-align:center;">等待游戏开始...</div>
+      </div>
+    </div>
+
+    <!-- 推演面板 -->
+    <div class="lookahead-panel" id="lookaheadPanel" style="display:none">
+      <div class="panel-title"><span class="icon">🔮</span> 未来推演（10回合）</div>
+      <div style="margin-bottom:8px">
+        <span style="font-size:12px;color:#888;">选择推演走法：</span>
+        <span style="font-size:14px;color:#f0d78c;font-weight:600;" id="lookaheadMove"></span>
+      </div>
+      <div class="lookahead-steps" id="lookaheadSteps"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <button class="replay-btn" id="laPrev" title="上一步" style="width:24px;height:24px;font-size:12px;">◀</button>
+        <span style="font-size:12px;color:#888;" id="laStepInfo">第 0/0 步</span>
+        <button class="replay-btn" id="laNext" title="下一步" style="width:24px;height:24px;font-size:12px;">▶</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-new" id="laExecute" style="font-size:12px;padding:6px 14px;">✅ 执行此走法</button>
+        <button class="btn btn-undo" id="laClose" style="font-size:12px;padding:6px 14px;">✕ 关闭</button>
+      </div>
+      <canvas id="lookaheadBoard" width="270" height="300" style="margin-top:8px;border-radius:8px;display:none;"></canvas>
+    </div>
+
+    <!-- 复盘面板 -->
+    <div class="replay-panel" id="replayPanel" style="display:none">
+      <div class="panel-title"><span class="icon">📋</span> 对局复盘</div>
+      <div class="replay-controls">
+        <button class="replay-btn" id="replayFirst" title="第一步">⏮</button>
+        <button class="replay-btn" id="replayPrev" title="上一步">◀</button>
+        <input type="range" class="replay-slider" id="replaySlider" min="0" max="0" value="0">
+        <button class="replay-btn" id="replayNext" title="下一步">▶</button>
+        <button class="replay-btn" id="replayLast" title="最后一步">⏭</button>
+      </div>
+      <div class="replay-info" id="replayInfo">第 0 / 0 步</div>
+      <div style="display:flex;justify-content:center;margin-top:10px;">
+        <button class="btn btn-new" id="replayExit" style="font-size:12px;padding:6px 16px;">退出复盘</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 全局状态 ====================
+const API = '';  // 同源
+let gameId = null;
+let boardState = null;
+let selectedPiece = null;  // {row, col}
+let legalMoves = [];
+let isReplayMode = false;
+let replayStep = 0;
+let recommendations = [];
+let lookaheadSequence = [];
+let lookaheadViewStep = -1;
+
+// ==================== Canvas 绘制 ====================
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const BOARD_PADDING = 40;
+const CELL_SIZE = 58;
+const PIECE_RADIUS = 24;
+
+// 棋子颜色
+const RED_PIECE_COLOR = '#e74c3c';
+const RED_PIECE_BORDER = '#c0392b';
+const BLACK_PIECE_COLOR = '#2c3e50';
+const BLACK_PIECE_BORDER = '#1a1a2e';
+const BOARD_BG = '#f5deb3';
+const BOARD_LINE = '#8b7355';
+const RIVER_COLOR = '#5b8c5a';
+
+// 棋子 Unicode
+const PIECE_CHARS = {
+  'K': '帅', 'A': '仕', 'E': '相', 'H': '馬', 'R': '車', 'C': '炮', 'P': '兵',
+  'k': '将', 'a': '士', 'e': '象', 'h': '馬', 'r': '車', 'c': '砲', 'p': '卒',
+};
+
+function drawBoard(boardData = null) {
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // 背景
+  ctx.fillStyle = BOARD_BG;
+  ctx.beginPath();
+  ctx.roundRect(10, 10, w - 20, h - 20, 12);
+  ctx.fill();
+
+  // 网格线
+  ctx.strokeStyle = BOARD_LINE;
+  ctx.lineWidth = 1;
+
+  // 横线
+  for (let r = 0; r < 10; r++) {
+    const y = BOARD_PADDING + r * CELL_SIZE;
+    ctx.beginPath();
+    ctx.moveTo(BOARD_PADDING, y);
+    ctx.lineTo(BOARD_PADDING + 8 * CELL_SIZE, y);
+    ctx.stroke();
+  }
+
+  // 竖线（上半区）
+  for (let c = 0; c < 9; c++) {
+    const x = BOARD_PADDING + c * CELL_SIZE;
+    ctx.beginPath();
+    ctx.moveTo(x, BOARD_PADDING);
+    ctx.lineTo(x, BOARD_PADDING + 4 * CELL_SIZE);
+    ctx.stroke();
+  }
+
+  // 竖线（下半区）
+  for (let c = 0; c < 9; c++) {
+    const x = BOARD_PADDING + c * CELL_SIZE;
+    ctx.beginPath();
+    ctx.moveTo(x, BOARD_PADDING + 5 * CELL_SIZE);
+    ctx.lineTo(x, BOARD_PADDING + 9 * CELL_SIZE);
+    ctx.stroke();
+  }
+
+  // 左右边线贯通
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING, BOARD_PADDING);
+  ctx.lineTo(BOARD_PADDING, BOARD_PADDING + 9 * CELL_SIZE);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING + 8 * CELL_SIZE, BOARD_PADDING);
+  ctx.lineTo(BOARD_PADDING + 8 * CELL_SIZE, BOARD_PADDING + 9 * CELL_SIZE);
+  ctx.stroke();
+
+  // 楚河汉界
+  ctx.fillStyle = RIVER_COLOR;
+  ctx.font = 'bold 18px "KaiTi", "STKaiti", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('楚  河', BOARD_PADDING + 2 * CELL_SIZE, BOARD_PADDING + 4.6 * CELL_SIZE);
+  ctx.fillText('汉  界', BOARD_PADDING + 6 * CELL_SIZE, BOARD_PADDING + 4.6 * CELL_SIZE);
+
+  // 九宫斜线
+  ctx.setLineDash([4, 4]);
+  // 上方九宫
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING + 3 * CELL_SIZE, BOARD_PADDING);
+  ctx.lineTo(BOARD_PADDING + 5 * CELL_SIZE, BOARD_PADDING + 2 * CELL_SIZE);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING + 5 * CELL_SIZE, BOARD_PADDING);
+  ctx.lineTo(BOARD_PADDING + 3 * CELL_SIZE, BOARD_PADDING + 2 * CELL_SIZE);
+  ctx.stroke();
+  // 下方九宫
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING + 3 * CELL_SIZE, BOARD_PADDING + 7 * CELL_SIZE);
+  ctx.lineTo(BOARD_PADDING + 5 * CELL_SIZE, BOARD_PADDING + 9 * CELL_SIZE);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(BOARD_PADDING + 5 * CELL_SIZE, BOARD_PADDING + 7 * CELL_SIZE);
+  ctx.lineTo(BOARD_PADDING + 3 * CELL_SIZE, BOARD_PADDING + 9 * CELL_SIZE);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 棋盘上的星位标记（炮和兵/卒位置）
+  const marks = [
+    // 黑炮
+    [2, 1], [2, 7],
+    // 红炮
+    [7, 1], [7, 7],
+    // 黑卒
+    [3, 0], [3, 2], [3, 4], [3, 6], [3, 8],
+    // 红兵
+    [6, 0], [6, 2], [6, 4], [6, 6], [6, 8],
+  ];
+  for (const [r, c] of marks) {
+    const x = BOARD_PADDING + c * CELL_SIZE;
+    const y = BOARD_PADDING + r * CELL_SIZE;
+    drawPositionMark(x, y, r, c);
+  }
+
+  // 绘制棋子
+  if (boardState) {
+    const board = boardState.board || boardState;
+    for (let r = 0; r < 10; r++) {
+      for (let c = 0; c < 9; c++) {
+        const piece = typeof board[r] === 'string' ? board[r][c] : board[r][c];
+        if (piece && piece !== '.') {
+          const x = BOARD_PADDING + c * CELL_SIZE;
+          const y = BOARD_PADDING + r * CELL_SIZE;
+
+          // 高亮选中棋子
+          if (selectedPiece && selectedPiece.row === r && selectedPiece.col === c) {
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+            ctx.beginPath();
+            ctx.arc(x, y, PIECE_RADIUS + 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          drawPiece(x, y, piece);
+        }
+      }
+    }
+
+    // 绘制合法走法提示
+    for (const move of legalMoves) {
+      const sx = BOARD_PADDING + move.from_col * CELL_SIZE;
+      const sy = BOARD_PADDING + move.from_row * CELL_SIZE;
+      const ex = BOARD_PADDING + move.to_col * CELL_SIZE;
+      const ey = BOARD_PADDING + move.to_row * CELL_SIZE;
+
+      // 高亮起始位置
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, PIECE_RADIUS + 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 目标位置标记
+      const target = boardState.board[move.to_row]?.[move.to_col];
+      if (target && target !== '.') {
+        // 吃子标记（红圈）
+        ctx.strokeStyle = 'rgba(220, 20, 60, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ex, ey, PIECE_RADIUS + 3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        // 空位标记（小圆点）
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+        ctx.beginPath();
+        ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function drawPositionMark(x, y, r, c) {
+  // 画角落的小标记
+  const d = 6;
+  const offset = 3;
+  ctx.strokeStyle = BOARD_LINE;
+  ctx.lineWidth = 1;
+
+  // 左上
+  if (r > 0 && c > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x - offset, y - offset - d);
+    ctx.lineTo(x - offset, y - offset);
+    ctx.lineTo(x - offset - d, y - offset);
+    ctx.stroke();
+  }
+  // 右上
+  if (r > 0 && c < 8) {
+    ctx.beginPath();
+    ctx.moveTo(x + offset, y - offset - d);
+    ctx.lineTo(x + offset, y - offset);
+    ctx.lineTo(x + offset + d, y - offset);
+    ctx.stroke();
+  }
+  // 左下
+  if (r < 9 && c > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x - offset, y + offset + d);
+    ctx.lineTo(x - offset, y + offset);
+    ctx.lineTo(x - offset - d, y + offset);
+    ctx.stroke();
+  }
+  // 右下
+  if (r < 9 && c < 8) {
+    ctx.beginPath();
+    ctx.moveTo(x + offset, y + offset + d);
+    ctx.lineTo(x + offset, y + offset);
+    ctx.lineTo(x + offset + d, y + offset);
+    ctx.stroke();
+  }
+}
+
+function drawPiece(x, y, piece) {
+  const isRed = piece === piece.toUpperCase();
+
+  // 棋子阴影
+  ctx.shadowColor = 'rgba(0,0,0,0.3)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  // 棋子主体
+  const gradient = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, PIECE_RADIUS);
+  if (isRed) {
+    gradient.addColorStop(0, '#fdf2e9');
+    gradient.addColorStop(1, '#ebd5c0');
+  } else {
+    gradient.addColorStop(0, '#e8e8e8');
+    gradient.addColorStop(1, '#c8c8c8');
+  }
+
+  ctx.beginPath();
+  ctx.arc(x, y, PIECE_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // 棋子边框
+  ctx.strokeStyle = isRed ? RED_PIECE_BORDER : BLACK_PIECE_BORDER;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 内圈
+  ctx.beginPath();
+  ctx.arc(x, y, PIECE_RADIUS - 5, 0, Math.PI * 2);
+  ctx.strokeStyle = isRed ? RED_PIECE_BORDER : BLACK_PIECE_BORDER;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.shadowColor = 'transparent';
+
+  // 棋子文字
+  ctx.fillStyle = isRed ? RED_PIECE_COLOR : '#1a1a2e';
+  ctx.font = `bold ${PIECE_RADIUS - 1}px "KaiTi", "STKaiti", "PingFang SC", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(PIECE_CHARS[piece] || piece, x, y + 1);
+}
+
+// ==================== 棋盘交互 ====================
+canvas.addEventListener('click', (e) => {
+  if (isReplayMode) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top) * scaleY;
+
+  const col = Math.round((mx - BOARD_PADDING) / CELL_SIZE);
+  const row = Math.round((my - BOARD_PADDING) / CELL_SIZE);
+
+  if (row < 0 || row > 9 || col < 0 || col > 8) {
+    selectedPiece = null;
+    legalMoves = [];
+    drawBoard(boardState);
+    return;
+  }
+
+  if (!boardState) return;
+
+  const clickedPiece = boardState.board[row]?.[col];
+
+  if (selectedPiece) {
+    // 检查是否点击了合法目标
+    const targetMove = legalMoves.find(
+      m => m.to_row === row && m.to_col === col
+    );
+
+    if (targetMove) {
+      // 执行走法
+      makeMove(selectedPiece.row, selectedPiece.col, row, col);
+      selectedPiece = null;
+      legalMoves = [];
+      return;
+    }
+  }
+
+  // 选择棋子（只允许选择红方棋子）
+  if (clickedPiece && clickedPiece !== '.' && clickedPiece === clickedPiece.toUpperCase()) {
+    if (boardState.redTurn) {
+      selectedPiece = { row, col };
+      // 获取合法走法
+      fetchLegalMoves(row, col);
+      return;
+    }
+  }
+
+  // 点击空处取消选择
+  selectedPiece = null;
+  legalMoves = [];
+  drawBoard(boardState);
+});
+
+async function fetchLegalMoves(row, col) {
+  try {
+    const resp = await fetch(
+      `${API}/api/legal-moves/${gameId}?from_row=${row}&from_col=${col}`
+    );
+    if (!resp.ok) throw new Error('获取走法失败');
+    const data = await resp.json();
+    legalMoves = (data.moves || []).map(m => ({
+      from_row: m.from[0], from_col: m.from[1],
+      to_row: m.to[0], to_col: m.to[1],
+    }));
+    drawBoard(boardState);
+  } catch (err) {
+    console.error('获取合法走法失败:', err);
+  }
+}
+
+// ==================== API 调用 ====================
+
+async function initGame() {
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/new-game`, { method: 'POST' });
+    const data = await resp.json();
+    gameId = data.game_id;
+    boardState = data.board;
+    recommendations = data.recommendations || [];
+    updateAll(data);
+  } catch (err) {
+    showToast('连接服务器失败，请确认服务已启动', 'error');
+  }
+  showLoading(false);
+}
+
+async function makeMove(fr, fc, tr, tc) {
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        game_id: gameId,
+        from_row: fr, from_col: fc,
+        to_row: tr, to_col: tc,
+      }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      showToast(err.detail || '非法走法', 'error');
+      showLoading(false);
+      return;
+    }
+    const data = await resp.json();
+    boardState = data.board;
+    recommendations = data.recommendations || [];
+    updateAll(data);
+
+    if (boardState.gameOver) {
+      const winner = boardState.winner === 'red' ? '红方获胜！🎉' :
+                     boardState.winner === 'black' ? '黑方获胜' : '和棋';
+      showToast(winner, 'success');
+    }
+  } catch (err) {
+    showToast('网络错误', 'error');
+  }
+  showLoading(false);
+}
+
+async function doUndo() {
+  if (!gameId) return;
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/undo/${gameId}`, { method: 'POST' });
+    if (!resp.ok) {
+      const err = await resp.json();
+      showToast(err.detail || '无法悔棋', 'error');
+      showLoading(false);
+      return;
+    }
+    const data = await resp.json();
+    boardState = data.board;
+    recommendations = data.recommendations || [];
+    updateAll(data);
+    showToast('已悔棋', 'success');
+  } catch (err) {
+    showToast('网络错误', 'error');
+  }
+  showLoading(false);
+}
+
+async function getLookahead(move) {
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/lookahead/${gameId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        game_id: gameId,
+        from_row: move.from[0], from_col: move.from[1],
+        to_row: move.to[0], to_col: move.to[1],
+      }),
+    });
+    const data = await resp.json();
+    lookaheadSequence = data.sequence || [];
+    lookaheadViewStep = -1;
+    renderLookahead();
+  } catch (err) {
+    showToast('推演失败', 'error');
+  }
+  showLoading(false);
+}
+
+async function loadReplay() {
+  if (!gameId) return;
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/replay/${gameId}`);
+    const data = await resp.json();
+    window.replayData = data.steps || [];
+    isReplayMode = true;
+    replayStep = data.total || 0;
+
+    document.getElementById('replayPanel').style.display = 'block';
+    document.getElementById('replaySlider').max = data.total;
+    document.getElementById('replaySlider').value = data.total;
+    updateReplayInfo();
+
+    // 加载最终状态
+    loadReplayStep(data.total);
+  } catch (err) {
+    showToast('获取复盘数据失败', 'error');
+  }
+  showLoading(false);
+}
+
+async function loadReplayStep(step) {
+  if (!gameId) return;
+  showLoading(true);
+  try {
+    const resp = await fetch(`${API}/api/replay-step/${gameId}/${step}`);
+    const data = await resp.json();
+    boardState = data.board;
+    drawBoard(boardState);
+    updateWinRates(data.winRates);
+  } catch (err) {
+    console.error('加载复盘步骤失败:', err);
+  }
+  showLoading(false);
+}
+
+function exitReplay() {
+  isReplayMode = false;
+  document.getElementById('replayPanel').style.display = 'none';
+  // 重新加载当前游戏状态
+  refreshGame();
+}
+
+// ==================== UI 更新 ====================
+
+function updateAll(data) {
+  boardState = data.board;
+  updateTurnIndicator();
+  drawBoard(boardState);
+  updateWinRates(data.win_rates);
+  updateRecommendations(data.recommendations);
+  document.getElementById('btnUndo').disabled = boardState.gameOver || boardState.moveCount < 2;
+}
+
+function updateTurnIndicator() {
+  const el = document.getElementById('turnIndicator');
+  if (!boardState) return;
+  if (boardState.gameOver) {
+    const winner = boardState.winner === 'red' ? '红方获胜！🎉' :
+                   boardState.winner === 'black' ? '黑方获胜' : '和棋 🤝';
+    el.textContent = winner;
+    el.className = 'turn-indicator ' + (boardState.winner === 'red' ? 'red' : 'black');
+  } else if (boardState.redTurn) {
+    el.textContent = '🔴 红方走棋';
+    el.className = 'turn-indicator red';
+  } else {
+    el.textContent = '⚫ 黑方走棋 (AI 思考中...)';
+    el.className = 'turn-indicator black';
+  }
+}
+
+function updateWinRates(winRates) {
+  if (!winRates) return;
+  document.getElementById('redWinBar').style.width = winRates.redWinRate + '%';
+  document.getElementById('drawBar').style.width = winRates.drawRate + '%';
+  document.getElementById('blackWinBar').style.width = winRates.blackWinRate + '%';
+  document.getElementById('redWinValue').textContent = winRates.redWinRate.toFixed(1) + '%';
+  document.getElementById('drawValue').textContent = winRates.drawRate.toFixed(1) + '%';
+  document.getElementById('blackWinValue').textContent = winRates.blackWinRate.toFixed(1) + '%';
+}
+
+function updateRecommendations(recos) {
+  const el = document.getElementById('recoList');
+  if (!recos || recos.length === 0) {
+    el.innerHTML = '<div style="color:#666;padding:16px;text-align:center;">暂无可推荐走法</div>';
+    return;
+  }
+
+  let html = '';
+  recos.forEach((reco, i) => {
+    const m = reco.move;
+    const piece = boardState.board[m.from[0]][m.from[1]];
+    const pieceName = PIECE_CHARS[piece] || piece;
+    const fromPos = `(${m.from[0]},${m.from[1]})`;
+    const toPos = `(${m.to[0]},${m.to[1]})`;
+
+    html += `
+      <div class="reco-item" onclick="onRecoClick(${i})" data-idx="${i}">
+        <div class="reco-rank r${i + 1}">${i + 1}</div>
+        <div class="reco-info">
+          <div class="reco-move">${pieceName} ${fromPos} → ${toPos}</div>
+          <div class="reco-detail">
+            ${reco.advantage === 'red' ? '⬆ 红优' : reco.advantage === 'black' ? '⬇ 黑优' : '≈ 均势'}
+            · 估值 ${reco.evaluation > 0 ? '+' : ''}${reco.evaluation}
+          </div>
+        </div>
+        <div class="reco-rate">${reco.redWinRate.toFixed(1)}%</div>
+        <div class="reco-arrow">▸</div>
+      </div>
+    `;
+  });
+  el.innerHTML = html;
+}
+
+function onRecoClick(idx) {
+  const reco = recommendations[idx];
+  if (!reco) return;
+
+  // 高亮选中
+  document.querySelectorAll('.reco-item').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`.reco-item[data-idx="${idx}"]`)?.classList.add('selected');
+
+  // 获取推演
+  getLookahead(reco.move);
+}
+
+function renderLookahead() {
+  document.getElementById('lookaheadPanel').style.display = 'block';
+
+  if (!lookaheadSequence.length) {
+    document.getElementById('lookaheadSteps').innerHTML =
+      '<div style="color:#666;padding:8px;">无推演数据</div>';
+    return;
+  }
+
+  const firstMove = lookaheadSequence[0]?.move;
+  const piece = firstMove ? (boardState.board[firstMove.from[0]]?.[firstMove.from[1]]) : '?';
+  document.getElementById('lookaheadMove').textContent =
+    `${PIECE_CHARS[piece] || '?'} (${firstMove?.from?.[0]},${firstMove?.from?.[1]}) → (${firstMove?.to?.[0]},${firstMove?.to?.[1]})`;
+
+  let html = '';
+  lookaheadSequence.slice(0, 10).forEach((step, i) => {
+    const cls = step.isRed ? 'red-step' : 'black-step';
+    const active = i === lookaheadViewStep ? ' active' : '';
+    // 从 FEN 中解析棋子信息
+    const fenParts = step.board?.split(' ')[0]?.split('/') || [];
+    const fromR = step.move?.from?.[0];
+    const fromC = step.move?.from?.[1];
+    let pieceChar = '?';
+    if (fromR !== undefined && fromC !== undefined && fenParts[fromR]) {
+      // FEN row might have digits representing empty squares, need to expand
+      let colIdx = 0;
+      for (const ch of fenParts[fromR]) {
+        if (ch >= '0' && ch <= '9') {
+          colIdx += parseInt(ch);
+        } else {
+          if (colIdx === fromC) {
+            pieceChar = PIECE_CHARS[ch] || ch;
+            break;
+          }
+          colIdx++;
+        }
+      }
+    }
+    html += `
+      <div class="lookahead-step ${cls}${active}" onclick="viewLookaheadStep(${i})">
+        T${step.turn} ${pieceChar}
+        <br><span class="lookahead-rate">红${step.redWinRate?.toFixed(0) || '?'}%</span>
+      </div>
+    `;
+  });
+  document.getElementById('lookaheadSteps').innerHTML = html;
+}
+
+function viewLookaheadStep(idx) {
+  lookaheadViewStep = idx;
+
+  // 更新高亮
+  document.querySelectorAll('.lookahead-step').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.lookahead-step')[idx]?.classList.add('active');
+
+  // 更新步数信息
+  document.getElementById('laStepInfo').textContent =
+    `第 ${idx + 1}/${lookaheadSequence.length} 步`;
+
+  // 在小棋盘上显示推演局面
+  const step = lookaheadSequence[idx];
+  if (step && step.board) {
+    const lb = document.getElementById('lookaheadBoard');
+    lb.style.display = 'block';
+    lb.width = 270;
+    lb.height = 300;
+    const lctx = lb.getContext('2d');
+    drawMiniBoard(lctx, lb.width, lb.height, step.board);
+  }
+}
+
+function drawMiniBoard(ctx, w, h, fen) {
+  const pad = 12;
+  const cs = 28;
+  const parts = fen.split(' ')[0].split('/');
+
+  ctx.fillStyle = BOARD_BG;
+  ctx.fillRect(0, 0, w, h);
+
+  // 简化版棋盘
+  ctx.strokeStyle = BOARD_LINE;
+  ctx.lineWidth = 0.5;
+  for (let r = 0; r < 10; r++) {
+    const y = pad + r * cs;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(pad + 8 * cs, y);
+    ctx.stroke();
+  }
+  for (let c = 0; c < 9; c++) {
+    const x = pad + c * cs;
+    ctx.beginPath();
+    ctx.moveTo(x, pad);
+    ctx.lineTo(x, pad + 9 * cs);
+    ctx.stroke();
+  }
+
+  // 棋子
+  for (let r = 0; r < 10; r++) {
+    const row = [];
+    for (const ch of parts[r] || '') {
+      if (ch >= '1' && ch <= '9') row.push(...Array(parseInt(ch)).fill('.'));
+      else row.push(ch);
+    }
+    for (let c = 0; c < 9 && c < row.length; c++) {
+      const piece = row[c];
+      if (piece && piece !== '.') {
+        const x = pad + c * cs;
+        const y = pad + r * cs;
+        const isRed = piece === piece.toUpperCase();
+
+        ctx.beginPath();
+        ctx.arc(x, y, cs / 2 - 2, 0, Math.PI * 2);
+        ctx.fillStyle = isRed ? '#fdf2e9' : '#e8e8e8';
+        ctx.fill();
+        ctx.strokeStyle = isRed ? RED_PIECE_BORDER : BLACK_PIECE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = isRed ? RED_PIECE_COLOR : '#1a1a2e';
+        ctx.font = `bold ${cs / 2 - 1}px "KaiTi", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(PIECE_CHARS[piece] || piece, x, y + 1);
+      }
+    }
+  }
+}
+
+// ==================== 复盘控制 ====================
+document.getElementById('replaySlider').addEventListener('input', function() {
+  replayStep = parseInt(this.value);
+  updateReplayInfo();
+  loadReplayStep(replayStep);
+});
+
+document.getElementById('replayFirst').addEventListener('click', () => {
+  replayStep = 0;
+  document.getElementById('replaySlider').value = 0;
+  updateReplayInfo();
+  loadReplayStep(0);
+});
+
+document.getElementById('replayPrev').addEventListener('click', () => {
+  if (replayStep > 0) {
+    replayStep--;
+    document.getElementById('replaySlider').value = replayStep;
+    updateReplayInfo();
+    loadReplayStep(replayStep);
+  }
+});
+
+document.getElementById('replayNext').addEventListener('click', () => {
+  const max = parseInt(document.getElementById('replaySlider').max);
+  if (replayStep < max) {
+    replayStep++;
+    document.getElementById('replaySlider').value = replayStep;
+    updateReplayInfo();
+    loadReplayStep(replayStep);
+  }
+});
+
+document.getElementById('replayLast').addEventListener('click', () => {
+  const max = parseInt(document.getElementById('replaySlider').max);
+  replayStep = max;
+  document.getElementById('replaySlider').value = max;
+  updateReplayInfo();
+  loadReplayStep(max);
+});
+
+document.getElementById('replayExit').addEventListener('click', exitReplay);
+
+// 推演面板控制
+document.getElementById('laPrev').addEventListener('click', () => {
+  if (lookaheadViewStep > 0) viewLookaheadStep(lookaheadViewStep - 1);
+});
+document.getElementById('laNext').addEventListener('click', () => {
+  if (lookaheadViewStep < lookaheadSequence.length - 1) viewLookaheadStep(lookaheadViewStep + 1);
+});
+document.getElementById('laExecute').addEventListener('click', () => {
+  if (lookaheadSequence.length > 0) {
+    const m = lookaheadSequence[0].move;
+    makeMove(m.from[0], m.from[1], m.to[0], m.to[1]);
+    document.getElementById('lookaheadPanel').style.display = 'none';
+  }
+});
+document.getElementById('laClose').addEventListener('click', () => {
+  document.getElementById('lookaheadPanel').style.display = 'none';
+});
+
+function updateReplayInfo() {
+  const max = document.getElementById('replaySlider').max;
+  document.getElementById('replayInfo').textContent = `第 ${replayStep} / ${max} 步`;
+}
+
+// ==================== 按钮事件 ====================
+document.getElementById('btnUndo').addEventListener('click', doUndo);
+document.getElementById('btnNew').addEventListener('click', initGame);
+document.getElementById('btnReplay').addEventListener('click', loadReplay);
+
+// ==================== 工具函数 ====================
+function showToast(msg, type) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+function showLoading(show) {
+  const section = document.getElementById('boardSection');
+  const existing = section.querySelector('.loading-overlay');
+
+  if (show && !existing) {
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = '<div class="spinner"></div>';
+    section.style.position = 'relative';
+    section.appendChild(overlay);
+  } else if (!show && existing) {
+    existing.remove();
+  }
+}
+
+async function refreshGame() {
+  if (!gameId) return;
+  try {
+    const resp = await fetch(`${API}/api/game/${gameId}`);
+    const data = await resp.json();
+    boardState = data.board;
+    recommendations = data.recommendations || [];
+    updateAll(data);
+  } catch (err) {
+    console.error('刷新失败:', err);
+  }
+}
+
+// ==================== 键盘快捷键 ====================
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z') {
+    e.preventDefault();
+    doUndo();
+  }
+  if (e.key === 'Escape') {
+    selectedPiece = null;
+    legalMoves = [];
+    document.getElementById('recoList').querySelectorAll('.reco-item').forEach(el => el.classList.remove('selected'));
+    document.getElementById('lookaheadPanel').style.display = 'none';
+    drawBoard(boardState);
+  }
+  // 左右箭头导航推演/复盘
+  if (!isReplayMode && lookaheadSequence.length > 0 && document.getElementById('lookaheadPanel').style.display !== 'none') {
+    if (e.key === 'ArrowLeft' && lookaheadViewStep > 0) {
+      e.preventDefault();
+      viewLookaheadStep(lookaheadViewStep - 1);
+    }
+    if (e.key === 'ArrowRight' && lookaheadViewStep < lookaheadSequence.length - 1) {
+      e.preventDefault();
+      viewLookaheadStep(lookaheadViewStep + 1);
+    }
+  }
+  if (isReplayMode) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      document.getElementById('replayPrev').click();
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      document.getElementById('replayNext').click();
+    }
+  }
+});
+
+// ==================== 启动 ====================
+initGame();
+drawBoard();
+</script>
+</body>
+</html>
