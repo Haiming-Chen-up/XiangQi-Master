@@ -531,31 +531,134 @@ class Board:
         return moves
 
     def is_checkmate(self, is_red: bool = None) -> bool:
-        """检查是否将死"""
+        """检查是否将死（被将军且无路可逃）"""
         if is_red is None:
             is_red = self.red_turn
-        return len(self.generate_moves(is_red)) == 0
+        # 将死 = 无合法走法 + 被将军
+        return len(self.generate_moves(is_red)) == 0 and self._is_king_in_check(is_red)
 
     def is_stalemate(self, is_red: bool = None) -> bool:
-        """检查是否困毙"""
+        """检查是否困毙（无合法走法且未被将军）"""
         if is_red is None:
             is_red = self.red_turn
         return len(self.generate_moves(is_red)) == 0 and not self._is_king_in_check(is_red)
 
+    def get_victory_type(self) -> str:
+        """
+        获取胜利类型
+        返回: 'checkmate'(将死), 'stalemate'(困毙), 'resign'(认输), None(未结束)
+        """
+        if not self.game_over:
+            return None
+        if self.winner == 'draw':
+            return 'stalemate'
+        # 判断是将死还是其他胜利方式
+        opponent = 'black' if self.winner == 'red' else 'red'
+        opponent_is_red = (opponent == 'red')
+        if self.is_checkmate(opponent_is_red):
+            return 'checkmate'
+        return 'resign'
+
     def _check_game_end(self):
         """检查游戏是否结束"""
-        opponent = not self.red_turn
-        if self.is_checkmate(opponent):
+        # 此时 red_turn 已被 _make_move_raw 翻转，当前 red_turn 指向下一个要走棋的一方
+        # 需要检查当前要走棋的一方是否被将死或困毙
+        current_player = self.red_turn
+        if self.is_checkmate(current_player):
+            # 当前要走棋的一方被将死，对方获胜
             self.game_over = True
-            self.winner = 'red' if self.red_turn else 'black'
-        elif self.is_stalemate(opponent):
+            self.winner = 'black' if current_player else 'red'
+        elif self.is_stalemate(current_player):
             self.game_over = True
             self.winner = 'draw'
+
+    def get_check_status(self) -> dict:
+        """
+        获取当前将军形势状态
+        返回包含以下信息的字典:
+        - inCheck: 是否被将军
+        - checkmateThreat: 是否有将死威胁（必赢）
+        - checkingPieces: 将军的棋子列表
+        - escapeMoves: 解将的走法数量
+        """
+        result = {
+            'inCheck': False,
+            'checkmateThreat': False,
+            'checkingPieces': [],
+            'escapeMoves': 0,
+        }
+
+        current_is_red = self.red_turn
+        king_r, king_c = self._find_king(current_is_red)
+
+        if king_r < 0:
+            return result
+
+        # 检查是否被将军
+        result['inCheck'] = self._is_king_in_check(current_is_red)
+
+        if result['inCheck']:
+            # 找出将军的棋子
+            result['checkingPieces'] = self._find_checking_pieces(king_r, king_c, current_is_red)
+            # 计算解将走法
+            legal_moves = self.generate_moves(current_is_red)
+            result['escapeMoves'] = len(legal_moves)
+
+            # 将死威胁的轻量判定：无解将走法 = 已经将死（由 _check_game_end 处理）
+            # 只有1个解将走法时，快速检查对方是否能立即将死
+            if result['escapeMoves'] == 1:
+                result['checkmateThreat'] = self._is_checkmate_threat(current_is_red)
+
+        return result
+
+    def _find_checking_pieces(self, king_r: int, king_c: int, king_is_red: bool) -> list:
+        """找出正在将军的棋子"""
+        checking = []
+        attacker_is_red = not king_is_red
+
+        # 生成对方所有走法，看哪些能走到将的位置
+        opponent_moves = self.generate_moves_raw(attacker_is_red)
+        for move in opponent_moves:
+            if move.to_row == king_r and move.to_col == king_c:
+                piece = self.board[move.from_row][move.from_col]
+                checking.append({
+                    'piece': piece,
+                    'from': [move.from_row, move.from_col],
+                    'to': [move.to_row, move.to_col],
+                })
+
+        return checking
+
+    def _is_checkmate_threat(self, is_red: bool) -> bool:
+        """
+        判断是否为将死威胁（必赢局面）
+        is_red: 当前被将军的一方
+        逻辑：被将军方只有1个解将走法，检查解将后对方是否能继续将死
+        """
+        # 获取当前所有解将走法
+        escape_moves = self.generate_moves(is_red)
+
+        for escape_move in escape_moves:
+            # 模拟走解将步法
+            temp_board = self.light_copy()
+            temp_board._make_move_raw(escape_move)
+
+            # 解将后轮到对方走，检查对方是否有走法能将死己方
+            opponent_moves = temp_board.generate_moves(not is_red)
+            for opp_move in opponent_moves[:3]:  # 只检查前3个走法，控制性能
+                temp_board2 = temp_board.light_copy()
+                temp_board2._make_move_raw(opp_move)
+
+                # 对方走完后，检查己方是否被将死
+                if temp_board2.is_checkmate(is_red):
+                    return True
+
+        return False
 
     # ---------- 导出 ----------
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             'board': [''.join(row) for row in self.board],
             'redTurn': self.red_turn,
             'gameOver': self.game_over,
@@ -564,6 +667,14 @@ class Board:
             'moves': [m.to_dict() for m in self.move_history],
             'fen': self.to_fen()
         }
+        
+        # 添加胜利类型
+        result['victoryType'] = self.get_victory_type()
+        
+        # 添加将军形势状态
+        result['checkStatus'] = self.get_check_status()
+        
+        return result
 
     def to_fen(self) -> str:
         """导出 FEN 格式"""

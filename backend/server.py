@@ -116,6 +116,10 @@ async def make_move(req: MoveRequest):
         if best_move:
             board.make_move(best_move)
             ai_move = best_move.to_dict()
+        else:
+            # AI 无合法走法，游戏结束（红方获胜）
+            board.game_over = True
+            board.winner = 'red'
 
     # 只计算一次胜率和推荐（使用AI搜索结果优化胜率计算）
     win_rates = ai_engine.win_rate(ai_score) if ai_move else ai_engine.calculate_win_rates(board, depth=1)
