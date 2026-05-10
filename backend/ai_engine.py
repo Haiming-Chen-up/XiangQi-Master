@@ -98,6 +98,12 @@ class AIEngine:
         self.max_depth = max_depth
         self.nodes_searched = 0
         self.eval_cache = {}  # 局面评估缓存
+        self.transposition_table = {}  # 置换表缓存搜索结果
+
+    def clear_cache(self):
+        """清空所有缓存"""
+        self.eval_cache.clear()
+        self.transposition_table.clear()
 
     # ========== 局面评估 ==========
 
@@ -238,7 +244,7 @@ class AIEngine:
 
     def alpha_beta(self, board: Board, depth: int, alpha: int, beta: int,
                    is_maximizing: bool) -> int:
-        """α-β 剪枝搜索"""
+        """α-β 剪枝搜索（带置换表优化）"""
         self.nodes_searched += 1
 
         # 终端节点
@@ -251,6 +257,12 @@ class AIEngine:
 
         if depth == 0:
             return self.evaluate(board)
+
+        # 置换表查找
+        fen = board.to_fen()
+        cache_key = f"{fen}:{depth}:{1 if is_maximizing else 0}"
+        if cache_key in self.transposition_table:
+            return self.transposition_table[cache_key]
 
         moves = board.generate_moves()
         moves = self._order_moves(moves, board)
@@ -271,6 +283,9 @@ class AIEngine:
                 alpha = max(alpha, eval_score)
                 if beta <= alpha:
                     break
+            # 缓存结果
+            if len(self.transposition_table) < 50000:
+                self.transposition_table[cache_key] = max_eval
             return max_eval
         else:  # 黑方
             min_eval = math.inf
@@ -282,6 +297,9 @@ class AIEngine:
                 beta = min(beta, eval_score)
                 if beta <= alpha:
                     break
+            # 缓存结果
+            if len(self.transposition_table) < 50000:
+                self.transposition_table[cache_key] = min_eval
             return min_eval
 
     def search_best_move(self, board: Board, depth: int = None) -> tuple[Move, int]:
@@ -349,11 +367,13 @@ class AIEngine:
     # ========== 推演未来 ==========
 
     def look_ahead(self, board: Board, move: Move,
-                   turns: int = 10, depth: int = 3) -> list[dict]:
+                   turns: int = 10, depth: int = 2) -> list[dict]:
         """
         推演未来的局面变化
         从当前局面执行指定走法后，模拟未来 N 回合
         返回每步后的局面信息
+        
+        优化：使用 depth=2 平衡速度和棋力
         """
         self.nodes_searched = 0
         sim_board = board.light_copy()
@@ -362,7 +382,7 @@ class AIEngine:
         sequence = []
         current_turn = sim_board.red_turn  # 走完 move 后的轮次
 
-        # 第一步（用户的走法）
+        # 第一步（用户的走法）- 使用静态评估快速返回
         eval_score = self.evaluate(sim_board)
         win_info = self.win_rate(eval_score)
         sequence.append({
@@ -380,6 +400,7 @@ class AIEngine:
                 break
 
             is_red = sim_board.red_turn
+            # 使用 depth=2 加快推演速度
             best_move, best_score = self.search_best_move(sim_board, depth)
 
             if best_move is None:
@@ -424,9 +445,6 @@ class AIEngine:
                 eval_score = int(eval_score * 0.7 + best * 0.3)
         
         return self.win_rate(eval_score)
-
-    def clear_cache(self):
-        self.eval_cache.clear()
 
 
 # 创建全局引擎实例

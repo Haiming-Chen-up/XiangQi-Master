@@ -107,20 +107,20 @@ async def make_move(req: MoveRequest):
     if not success:
         raise HTTPException(status_code=400, detail="非法走法")
 
-    # 计算走棋后的局面
-    win_rates = ai_engine.calculate_win_rates(board, depth=2)
-
     # 如果游戏没结束，AI 走黑棋
     ai_move = None
+    ai_score = 0
     if not board.game_over and not board.red_turn:
-        best_move, best_score = ai_engine.search_best_move(board, depth=2)
+        # 使用 depth=2 平衡速度和棋力
+        best_move, ai_score = ai_engine.search_best_move(board, depth=2)
         if best_move:
             board.make_move(best_move)
             ai_move = best_move.to_dict()
 
-    # 重新计算
-    win_rates = ai_engine.calculate_win_rates(board, depth=2)
-    recommendations = ai_engine.get_recommendations(board, top_n=3, depth=2)
+    # 只计算一次胜率和推荐（使用AI搜索结果优化胜率计算）
+    win_rates = ai_engine.win_rate(ai_score) if ai_move else ai_engine.calculate_win_rates(board, depth=1)
+    # 推荐使用更低的深度以加快响应
+    recommendations = ai_engine.get_recommendations(board, top_n=3, depth=1)
 
     return {
         "board": board.to_dict(),
@@ -200,7 +200,8 @@ async def look_ahead(game_id: str, req: MoveRequest):
         raise HTTPException(status_code=404, detail="游戏不存在")
 
     move = Move(req.from_row, req.from_col, req.to_row, req.to_col)
-    sequence = ai_engine.look_ahead(board, move, turns=10, depth=3)
+    # 使用 depth=2 加快推演速度（原来是 depth=3）
+    sequence = ai_engine.look_ahead(board, move, turns=10, depth=2)
 
     return {
         "sequence": sequence[:11],  # 最多10回合
